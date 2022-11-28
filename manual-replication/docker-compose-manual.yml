@@ -4,32 +4,24 @@ services:
   postgresql-primary:
     image: postgres:15.1
     ports:
-      - '5432'
+      - '15001:5432'
     volumes:
       - 'manual_postgresql_primary_data:/var/lib/postgresql/data'
-      - './postgres_configuration/primary-postgres.conf:/etc/postgresql/postgresql.conf'
-      - './postgres_configuration/primary-pg_hba.conf:/etc/postgresql/pg_hba.conf'
+      - 'slave_data_volume:/tmp/postgresslave'
+      - './postgres_configuration/primary-postgres.conf:/var/lib/postgresql/data/postgresql.conf'
+      - './postgres_configuration/primary-pg_hba.conf:/var/lib/postgresql/data/pg_hba.conf'
     environment:
       - POSTGRES_PASSWORD=my_password
-      - POSTGRESQL_REPLICATION_USER=replicator
-      - POSTGRESQL_REPLICATION_PASSWORD=my_replicator_password
   postgresql-secondary:
     image: postgres:15.1
     ports:
-      - '5432'
+      - '15002:5432'
     depends_on:
       - postgresql-primary
     volumes:
-      - './data-secondary:/var/lib/postgresql/data'
-      - './postgres_configuration/primary-postgres.conf:/etc/postgresql/postgresql.conf'
-      - './postgres_configuration/primary-pg_hba.conf:/etc/postgresql/pg_hba.conf'
+      - 'slave_data_volume:/var/lib/postgresql/data'
     environment:
       - POSTGRES_PASSWORD=my_password
-      - POSTGRESQL_REPLICATION_USER=replicator
-      - POSTGRESQL_REPLICATION_PASSWORD=my_replicator_password
-      - POSTGRESQL_MASTER_HOST=postgresql-primary
-      - POSTGRESQL_MASTER_PASSWORD=my_password
-      - POSTGRESQL_MASTER_PORT_NUMBER=5432
 volumes:
   manual_postgresql_primary_data:
-    driver: local
+  slave_data_volume:

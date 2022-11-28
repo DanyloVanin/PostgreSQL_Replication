@@ -18,12 +18,13 @@ max_replication_slots = 10
 hot_standby_feedback = on
 ```
 
-3. Create custom `primary-pg_hba.conf`:
+3. Create custom `primary-pg_hba.conf` and put it into `postgresql-configuration` folder:
 
 ```txt
 # TYPE  DATABASE        USER            ADDRESS                 METHOD
+
 # "local" is for Unix domain socket connections only
-local   all             all                                     trust
+local   ll             all                                     trust
 # IPv4 local connections:
 host    all             all             127.0.0.1/32            trust
 # IPv6 local connections:
@@ -32,17 +33,9 @@ host    all             all             ::1/128                 trust
 # replication privilege.
 local   replication     all                                     trust
 host    replication     all             127.0.0.1/32            trust
-host    replication     all             ::1/128                 trust
 host    replication     replicator      0.0.0.0/0               trust
-host all all all md5
-```
-
-4. Add configuration to primary container in `docker-compose-manual.yml`:
-
-```yml
-    volumes:
-      - './postgres_configuration/primary-postgres.conf:/etc/postgresql/postgresql.conf'
-      - './postgres_configuration/primary-pg_hba.conf:/etc/postgresql/pg_hba.conf'
+host    replication     all             ::1/128                 trust
+host all all all md5a
 ```
 
 4. Start primary database container:
@@ -50,7 +43,7 @@ host all all all md5
 docker-compose -f ./docker-compose-manual.yml up --detach --scale postgresql-primary=1 --scale postgresql-secondary=0
 ```
 
-5. On the primary database to the following:
+5. For the primary database to the following:
 
 ```sh
 # Create the replicator user on master
@@ -64,7 +57,7 @@ SELECT * FROM pg_replication_slots;
 
 ```
 
-6. Transfer backup from master database to slave:
+6. Generate backup from master database to slave:
 ```sh
 # Get into container
 docker exec -it <container_id> bash
@@ -72,13 +65,11 @@ docker exec -it <container_id> bash
 # We need to get a backup from our master database and restore it for the slave.
 pg_basebackup -D /tmp/postgresslave -S replication_slot_slave1 -X stream -P -U replicator -Fp -R
 
-# On host machine execute the following:
-docker cp <container_id>:/tmp/postgresslave/ ./data-secondary
 ```
 
-7. Update some values from `postgresql.auto.conf` file inside the `data-secondary` directory with connection information and restore command:
+7. Update some values from `postgresql.auto.conf` file inside the `/tmp/postgresslave` directory with connection information and restore command:
 ```
-primary_conninfo = 'host=127.0.0.1 port=5432 user=replicator password=my_replicator_password'
+primary_conninfo = 'host=postgresql-primary port=5432 user=replicator password=my_replicator_password'
 restore_command = 'cp /var/lib/postgresql/data/pg_wal/%f "%p"'
 ```
 
